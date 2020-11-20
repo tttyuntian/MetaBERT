@@ -9,7 +9,6 @@ joblib==0.17.0
 numpy==1.19.4
 packaging==20.4
 Pillow==8.0.1
-pkg-resources==0.0.0
 protobuf==3.14.0
 pyparsing==2.4.7
 regex==2020.11.13
