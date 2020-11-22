@@ -31,6 +31,7 @@ def parse_arguments():
     # I/O parameters
     parser.add_argument("--output_dir", type=str, default="./checkpoints", \
                         help="Output directory for model checkpoint.")
+    parser.add_argument("--output_name", type=str, default="checkpoint1")
 
     # BERT parameters
     parser.add_argument("--max_length", type=int, default=512)
@@ -82,7 +83,7 @@ def main(args):
     query_dataloaders   = get_dataloaders(query_datasets, "query", args)
 
     print("Load BERT and Create classifiers.")
-    model = BertModel.from_pretrained("bert-base-uncased")
+    model = BertModel.from_pretrained("bert-base-uncased", torchscript=True)
     outer_optimizer = Adam(model.parameters(), lr=outer_learning_rate)
     classifiers = get_classifiers(model, num_labels, args)
     model.to(device)
@@ -94,7 +95,11 @@ def main(args):
         model = maml(model, outer_optimizer, support_dataloaders, query_dataloaders, train_steps_per_task, device, args)
 
     print("Output checkpoint to /{}".format(args.output_dir))
-    
+    model.eval()
+    os.makedirs(args.output_dir, exist_ok=True)
+    output_path = os.path.join(args.output_path, args.output_name)
+    traced_model = torch.jit.trace(model)
+    torch.jit.save(traced_model, output_path)
 
 if __name__ == "__main__":
     args = parse_arguments()
