@@ -46,7 +46,7 @@ def get_num_labels(label_lists):
     """ Get a list of number of labels for the tasks """
     return [len(label_list) for label_list in label_lists]
 
-def preprocess(datasets, tokenizer):
+def preprocess(datasets, tokenizer, args):
     """ Preprocess every dataset """
     def preprocess_function(examples):
         """ Helper function to tokenize() the tokens """
@@ -83,10 +83,11 @@ def get_dataloaders(datasets, split, args):
     """ Convert datasets into torch.utils.data.DataLoader """
     dataloaders = []
     for task, dataset in datasets.items():
-        all_input_ids      = np.zeros([dataset.num_rows, args.max_length])
-        all_attention_mask = np.zeros([dataset.num_rows, args.max_length])
-        all_token_type_ids = np.zeros([dataset.num_rows, args.max_length])
-        for i in range(dataset.num_rows):
+        num_rows = dataset.num_rows if args.num_rows == -1 else args.num_rows
+        all_input_ids      = np.zeros([num_rows, args.max_length])
+        all_attention_mask = np.zeros([num_rows, args.max_length])
+        all_token_type_ids = np.zeros([num_rows, args.max_length])
+        for i in range(num_rows):
             features = dataset[i]
             curr_len = len(features["attention_mask"])
             all_input_ids[i,:curr_len]      = features["input_ids"]
@@ -95,7 +96,7 @@ def get_dataloaders(datasets, split, args):
         all_input_ids      = torch.tensor(all_input_ids, dtype=torch.long)
         all_attention_mask = torch.tensor(all_attention_mask, dtype=torch.long)
         all_token_type_ids = torch.tensor(all_token_type_ids, dtype=torch.long)
-        all_label          = torch.tensor(dataset[:]["label"], dtype=torch.long)
+        all_label          = torch.tensor(dataset[:num_rows]["label"], dtype=torch.long)
         
         data = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label)
         if split in ["train", "support"]:
