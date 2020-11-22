@@ -79,7 +79,7 @@ def support_query_split(datasets, query_size):
         query_datasets[task]   = support_query_split["test"]
     return support_datasets, query_datasets
 
-def get_dataloaders(datasets, split="train", args):
+def get_dataloaders(datasets, split, args):
     """ Convert datasets into torch.utils.data.DataLoader """
     dataloaders = []
     for task, dataset in datasets.items():
