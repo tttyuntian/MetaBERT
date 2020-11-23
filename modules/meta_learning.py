@@ -1,6 +1,7 @@
 import gc
 import sys
 from copy import deepcopy
+import logging
 
 import numpy as np
 import transformers
@@ -9,6 +10,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
+logger = logging.getLogger(__name__)
 
 
 def sample_task(train_steps_per_task, args):
@@ -26,13 +28,13 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
     sample_task_ids = sample_task(train_steps_per_task, args)
     
     for sample_task_id, task_id in enumerate(sample_task_ids):
+        logger.info("Sample tasks: {}/{}".format(sample_task_id, len(sample_task_ids)))
         classifier = classifiers[task_id]
         classifier.embedder = deepcopy(model)
         classifier.to(device)
         inner_optimizer = Adam(classifier.parameters(), lr=args.inner_learning_rate)
         classifier.train()
-
-        # Inner updates with support sets
+        
         for step_id in range(args.num_update_steps):
             all_loss = []
             for inner_step, batch in enumerate(support_dataloaders[task_id]):
@@ -44,7 +46,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
                 inner_optimizer.zero_grad()
                 all_loss.append(loss.item())
         if args.train_verbose:
-            print("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)), file=sys.stdout)
+            logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
         
         # Outer update with query set
         query_batch = iter(query_dataloaders[task_id]).next()
@@ -55,12 +57,14 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
         q_loss = q_outputs[1]
         q_loss.backward()
         classifier.to(torch.device("cpu"))
+        gradient_index = 0
         for i, (name, params) in enumerate(classifier.named_parameters()):
             if name.startswith("embedder"):
                 if sample_task_id == 0:
                     sum_gradients.append(deepcopy(params.grad))
                 else:
-                    sum_gradients[i] += deepcopy(params.grad)
+                    sum_gradients[gradient_index] += deepcopy(params.grad)
+                    gradient_index += 1
         
     # Update BERT parameters after sampling num_sample_tasks
     if sample_task_id % args.num_sample_tasks == (args.num_sample_tasks-1):
@@ -76,9 +80,11 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
         outer_optimizer.zero_grad()
     
     # Update this classifier
+    classifier.embedder = None
     classifiers[task_id] = deepcopy(classifier)
 
     del sum_gradients
-    #gc.collect()
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return model, classifiers

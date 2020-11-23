@@ -3,6 +3,7 @@ import json
 import gc
 import sys
 import os
+import logging
 
 import numpy as np
 import transformers
@@ -42,7 +43,7 @@ def parse_arguments():
     parser.add_argument("--do_lower_case", type=bool, default=True)
 
     # MAML parameters
-    parser.add_argument("--num_update_steps", type=int, default=5)
+    parser.add_argument("--num_update_steps", type=int, default=20)
     parser.add_argument("--num_sample_tasks", type=int, default=8)
     parser.add_argument("--outer_learning_rate", type=float, default=5e-5)
     parser.add_argument("--inner_learning_rate", type=float, default=1e-3)
@@ -55,51 +56,64 @@ def parse_arguments():
     
     # training parameters
     parser.add_argument("--num_train_epochs", type=int, default=5)
-    parser.add_argument("--train_batch_size", type=int, default=32)
-    parser.add_argument("--eval_batch_size", type=int, default=32)
+    parser.add_argument("--train_batch_size", type=int, default=8)
+    parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
     
     args = parser.parse_args()
-
-    print("input args:\n", json.dumps(vars(args), indent=4, separators=(",", ":")))
+    #print("input args:\n", json.dumps(vars(args), indent=4, separators=(",", ":")))
     return args
+
+def get_logger(args):
+    os.makedirs("../logs/{}".format(args.output_name), exist_ok=True)
+    logging.basicConfig(level=logging.INFO, \
+            format = '%(asctime)s %(levelname)s: %(message)s', \
+            datefmt = '%m/%d %H:%M:%S %p', \
+            filename = '../logs/{}/{}.log'.format(args.output_name, args.output_name), \
+            filemode = 'w'
+    )
+    return logging.getLogger(__name__)
+
+def logging_args(args):
+    for arg, value in vars(args).items():
+        logging.info("Argument {}: {}".format(arg, value))
 
 def get_train_steps(dataloaders, args):
     """ Get training steps for each task """
     return [len(dataloader.dataset) // (args.train_batch_size*(args.num_update_steps+1)) for dataloader in dataloaders]
 
-def get_classifiers(model, num_labels, args):
-    return [Classifier(model, args.hidden_size, num_labels[task_id]) for task_id in range(len(args.tasks))]
+def get_classifiers(num_labels, args):
+    return [Classifier(args.hidden_size, num_labels[task_id]) for task_id in range(len(args.tasks))]
 
 def main(args):
-    print("Loading datasets.", file=sys.stdout)
+    logger.info("Loading datasets.")
     train_datasets = {task:load_dataset("glue", task, split="train") for task in args.tasks}
     label_lists    = get_label_lists(train_datasets, args.tasks)
     num_labels     = get_num_labels(label_lists)
 
-    print("Preprocessing datasets.", file=sys.stdout)
+    logger.info("Preprocessing datasets.")
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=args.do_lower_case)
     train_datasets  = preprocess(train_datasets, tokenizer, args)
 
-    print("Retrieving support and query sets.", file=sys.stdout)
-    #train_datasets = get_split_datasets(datasets, "train", seed=args.seed)
+    logger.info("Retrieving support and query sets.")
     support_datasets, query_datasets = support_query_split(train_datasets, args.query_size)
     support_dataloaders = get_dataloaders(support_datasets, "support", args)
     query_dataloaders   = get_dataloaders(query_datasets, "query", args)
-
-    print("Load BERT and Create classifiers.", file=sys.stdout)
+    
+    logger.info("Load BERT and Create classifiers.")
     model = BertModel.from_pretrained("bert-base-uncased")
     outer_optimizer = Adam(model.parameters(), lr=args.outer_learning_rate)
-    classifiers = get_classifiers(model, num_labels, args)
+    classifiers = get_classifiers(num_labels, args)
     #model.to(device)
 
-    print("Start training!", file=sys.stdout)
+    logger.info("Start training!")
     train_steps_per_task = get_train_steps(support_dataloaders, args)
     for epoch_id in range(args.num_train_epochs):
-        print("Start Epoch {}".format(epoch_id))
+        logger.info("=" * 50)
+        logger.info("Start Epoch {}".format(epoch_id))
         model, classifiers = maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloaders, train_steps_per_task, device, args)
 
-    print("Output checkpoint to /{}".format(args.output_dir), file=sys.stdout)
+    logger.info("Output checkpoint to /{}".format(args.output_dir))
     model.eval()
     os.makedirs(args.output_dir, exist_ok=True)
     output_path = os.path.join(args.output_dir, args.output_name)
@@ -107,4 +121,6 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_arguments()
+    logger = get_logger(args)
+    logging_args(args)
     main(args)

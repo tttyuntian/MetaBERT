@@ -5,10 +5,10 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 
 class Classifier(nn.Module):
-    def __init__(self, embedder, input_dim, n_classes, dropout=0.2):
+    def __init__(self, input_dim, n_classes, dropout=0.2):
         super(Classifier, self).__init__()
         self.n_classes = n_classes
-        self.embedder = embedder
+        self.embedder = None
         self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(input_dim, n_classes)
     
