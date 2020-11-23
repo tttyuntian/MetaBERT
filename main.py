@@ -73,16 +73,16 @@ def get_classifiers(model, num_labels, args):
 
 def main(args):
     print("Loading datasets.", file=sys.stdout)
-    datasets      = {task:load_dataset("glue", task) for task in args.tasks}
-    label_lists   = get_label_lists(datasets, args.tasks)
-    num_labels    = get_num_labels(label_lists)
+    train_datasets = {task:load_dataset("glue", task, split="train") for task in args.tasks}
+    label_lists    = get_label_lists(train_datasets, args.tasks)
+    num_labels     = get_num_labels(label_lists)
 
     print("Preprocessing datasets.", file=sys.stdout)
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=args.do_lower_case)
-    datasets  = preprocess(datasets, tokenizer, args)
+    train_datasets  = preprocess(train_datasets, tokenizer, args)
 
-    print("Retrieving training set.", file=sys.stdout)
-    train_datasets = get_split_datasets(datasets, "train", seed=args.seed)
+    print("Retrieving support and query sets.", file=sys.stdout)
+    #train_datasets = get_split_datasets(datasets, "train", seed=args.seed)
     support_datasets, query_datasets = support_query_split(train_datasets, args.query_size)
     support_dataloaders = get_dataloaders(support_datasets, "support", args)
     query_dataloaders   = get_dataloaders(query_datasets, "query", args)

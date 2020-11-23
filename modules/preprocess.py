@@ -39,7 +39,7 @@ def get_label_lists(datasets, tasks):
         if is_regression:
             label_lists.append([None])
         else:
-            label_lists.append(datasets[task]["train"].features["label"].names)
+            label_lists.append(datasets[task].features["label"].names)
     return label_lists
 
 def get_num_labels(label_lists):
