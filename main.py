@@ -123,4 +123,6 @@ if __name__ == "__main__":
     args = parse_arguments()
     logger = get_logger(args)
     logging_args(args)
+    logger.info("Device: {}".format(device))
+
     main(args)

@@ -35,21 +35,22 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
         inner_optimizer = Adam(classifier.parameters(), lr=args.inner_learning_rate)
         classifier.train()
         
+        all_loss = []
+        support_dataloader = support_dataloaders[task_id]
         for step_id in range(args.num_update_steps):
-            all_loss = []
-            for inner_step, batch in enumerate(support_dataloaders[task_id]):
-                input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
-                outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
-                loss = outputs[1]
-                loss.backward()
-                inner_optimizer.step()
-                inner_optimizer.zero_grad()
-                all_loss.append(loss.item())
+            batch = next(iter(support_dataloader))
+            input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+            outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
+            loss = outputs[1]
+            loss.backward()
+            inner_optimizer.step()
+            inner_optimizer.zero_grad()
+            all_loss.append(loss.item())
         if args.train_verbose:
             logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
         
         # Outer update with query set
-        query_batch = iter(query_dataloaders[task_id]).next()
+        query_batch = next(iter(query_dataloaders[task_id]))
         q_input_ids, q_attention_mask, q_token_type_ids, q_labels = tuple(t.to(device) for t in query_batch)
         q_outputs = classifier(q_input_ids, q_attention_mask, q_token_type_ids, labels=q_labels)
         
