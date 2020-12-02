@@ -38,16 +38,6 @@ def main(args):
     print("Loading Checkpoint from {}".format(args.checkpoint_path)) 
     model = BertModel.from_pretrained(args.checkpoint_path)     
 
-    '''
-    print("Loading Test Dataset")
-    test = load_dataset("glue", args.eval_task, split="validation")
-    print("Dataset Size: {}".format(len(test)))
-    labels = get_label_lists({args.eval_task: test}, [args.eval_task])
-    print(labels)
-    print("Label Size: {}".format(len(labels)))
-    num_labels = get_num_labels(labels)
-    '''
-
     print("Preprocessing Fine Tune Data")
     
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
@@ -68,23 +58,24 @@ def main(args):
 
     train_steps_per_task = get_train_steps(support_dataloaders, args)
 
+    sample_task_ids = sample_task(train_steps_per_task, args)
+    #print(sample_task_ids)
+    #print(classifiers)
+    classifier = classifiers[0]
+    classifier.embedder = deepcopy(model)
+    classifier.to(device)
+    optimizer = AdamW(classifier.parameters(), lr=1e-5) #not sure if we should be optimizing the underlying BERT directly
+    classifier.train()
+
     for epoch_id in range(args.num_train_epochs):
         print(epoch_id)
-        sample_task_ids = sample_task(train_steps_per_task, args)
-        #print(sample_task_ids)
-        #print(classifiers)
-        classifier = classifiers[0]
-        classifier.embedder = deepcopy(model)
-        classifier.to(device)
-        optimizer = AdamW(classifier.parameters(), lr=1e-5)
-        classifier.train()
-
         #print(support_dataloaders)
         support_dataloader = support_dataloaders[0]
 
         all_loss = []
         print("starting to step")
         for step_id in range(args.num_update_steps):
+            break
             batch = next(iter(support_dataloader))
             input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
             print(labels)
@@ -95,7 +86,14 @@ def main(args):
             optimizer.zero_grad()
             all_loss.append(loss.item())
 
-        torch.save(classifier, args.config-path)
+    ## UNCOMMENT THIS torch.save(classifier, args.config-path)
+
+    print("Loading Test Dataset")
+    test_datasets = {task:load_dataset("glue", task, split="validation") for task in args.tasks}
+    #print("Dataset Size: {}".format(len(test_datasets[0])))
+    test_label_lists    = get_label_lists(test_datasets, args.tasks)
+    test_num_labels     = get_num_labels(test_label_lists)
+    #print("Label Size: {}".format(len(test_label_lists)))
 
     print("hello")
 
