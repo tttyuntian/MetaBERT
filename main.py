@@ -53,7 +53,7 @@ def parse_arguments():
                         help="Proportion of query set in training set.")
     parser.add_argument("--num_rows", type=int, default=-1, \
                         help="Number of datset rows loaded. -1 means whole dataset.")
-    
+                            
     # training parameters
     parser.add_argument("--num_train_epochs", type=int, default=5)
     parser.add_argument("--train_batch_size", type=int, default=8)
