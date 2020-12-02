@@ -74,11 +74,6 @@ def main(args):
         #pdb.set_trace()
         support_dataloader = support_dataloaders[0]
         print(len(support_dataloaders))
-
-        
-
-
-        
         all_loss = []
         print("starting to step")
         for step_id in range(args.num_update_steps):
@@ -94,7 +89,7 @@ def main(args):
             optimizer.zero_grad()
             all_loss.append(loss.item())
 
-    ## UNCOMMENT THIS torch.save(classifier, args.config-path)
+    torch.save(classifier, args.config-path)
 
     print("Loading Test Dataset")
     test_datasets = {task:load_dataset("glue", task, split="validation") for task in args.tasks}
