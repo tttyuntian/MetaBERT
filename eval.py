@@ -18,7 +18,7 @@ def parseArguments():
     parser.add_argument("--checkpoint_path", type=str, default="./metabert-small/")
     parser.add_argument("--tasks", nargs="+", \
                         default=["sst2"])
-    parser.add_argument("--num_train_epochs", type=int, default=1)
+    parser.add_argument("--num_train_epochs", type=int, default=5)
     parser.add_argument("--outer_learning_rate", type=float, default=5e-5)
     parser.add_argument("--num_rows", type=int, default=-1, \
                         help="Number of datset rows loaded. -1 means whole dataset.")
@@ -28,7 +28,7 @@ def parseArguments():
     parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
     parser.add_argument("--hidden_size", type=int, default=768)
-    parser.add_argument("--num_update_steps", type=int, default=2)
+    parser.add_argument("--num_update_steps", type=int, default=20)
     parser.add_argument("--num_sample_tasks", type=int, default=8)
     parser.add_argument("--inner_learning_rate", type=float, default=1e-3)
     parser.add_argument("--config-path", type=str, default="./metebert-small-tuned/")
