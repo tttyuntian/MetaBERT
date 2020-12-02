@@ -1,7 +1,7 @@
 from transformers import BertConfig, BertModel, BertTokenizer
 import argparse
 
-from main import get_logger, get_classifiers
+from main import get_logger, get_classifiers, get_train_steps, support_query_split
 from datasets import load_dataset, load_metric
 from modules.preprocess import get_label_lists, preprocess, get_num_labels, get_dataloaders
 from transformers import AdamW
@@ -13,12 +13,15 @@ def parseArguments():
     parser.add_argument("--checkpoint_path", type=str, default="./metabert-small/")
     parser.add_argument("--tasks", nargs="+", \
                         default=["sst2"])
-    parser.add_argument("--epochs", type=int, default=15)
+    parser.add_argument("--num_train_epochs", type=int, default=5)
     parser.add_argument("--outer_learning_rate", type=float, default=5e-5)
     parser.add_argument("--num_rows", type=int, default=-1, \
                         help="Number of datset rows loaded. -1 means whole dataset.")
     parser.add_argument("--max_length", type=int, default=512)
+    parser.add_argument("--padding", type=bool, default=True)
     parser.add_argument("--train_batch_size", type=int, default=8)
+    parser.add_argument("--eval_batch_size", type=int, default=8)
+    parser.add_argument("--train_verbose", action="store_true")
 
     return parser.parse_args()
 
@@ -50,9 +53,13 @@ def main(args):
     support_dataloaders = get_dataloaders(support_datasets, "support", args)
     query_dataloaders   = get_dataloaders(query_datasets, "query", args)
 
+    print("In Train Mode")
+
     model.train()
     optimizer = AdamW(model.parameters(), lr=1e-5)
     classifiers = get_classifiers(num_labels, args)
+
+    train_steps_per_task = get_train_steps(support_dataloaders, args)
 
     #for epoch in range(args.epochs):
 
