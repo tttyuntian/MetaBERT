@@ -8,6 +8,7 @@ from transformers import AdamW
 from modules.meta_learning import sample_task
 from copy import deepcopy
 import torch
+import pdb
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -17,7 +18,7 @@ def parseArguments():
     parser.add_argument("--checkpoint_path", type=str, default="./metabert-small/")
     parser.add_argument("--tasks", nargs="+", \
                         default=["sst2"])
-    parser.add_argument("--num_train_epochs", type=int, default=5)
+    parser.add_argument("--num_train_epochs", type=int, default=1)
     parser.add_argument("--outer_learning_rate", type=float, default=5e-5)
     parser.add_argument("--num_rows", type=int, default=-1, \
                         help="Number of datset rows loaded. -1 means whole dataset.")
@@ -27,7 +28,7 @@ def parseArguments():
     parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
     parser.add_argument("--hidden_size", type=int, default=768)
-    parser.add_argument("--num_update_steps", type=int, default=20)
+    parser.add_argument("--num_update_steps", type=int, default=2)
     parser.add_argument("--num_sample_tasks", type=int, default=8)
     parser.add_argument("--inner_learning_rate", type=float, default=1e-3)
     parser.add_argument("--config-path", type=str, default="./metebert-small-tuned/")
@@ -70,16 +71,23 @@ def main(args):
     for epoch_id in range(args.num_train_epochs):
         print(epoch_id)
         #print(support_dataloaders)
+        #pdb.set_trace()
         support_dataloader = support_dataloaders[0]
+        print(len(support_dataloaders))
 
+        
+
+
+        
         all_loss = []
         print("starting to step")
         for step_id in range(args.num_update_steps):
-            break
+            
             batch = next(iter(support_dataloader))
             input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
             print(labels)
             outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
+            
             loss = outputs[1]
             loss.backward()
             optimizer.step()
@@ -90,17 +98,47 @@ def main(args):
 
     print("Loading Test Dataset")
     test_datasets = {task:load_dataset("glue", task, split="validation") for task in args.tasks}
-    #print("Dataset Size: {}".format(len(test_datasets[0])))
+    
+    #print("Dataset Size: {}".format(type(test_datasets)))
+    test_datasets  = preprocess(test_datasets, tokenizer, args)
+    
     test_label_lists    = get_label_lists(test_datasets, args.tasks)
     test_num_labels     = get_num_labels(test_label_lists)
-    #print("Label Size: {}".format(len(test_label_lists)))
+    print("Label Size: {}".format(len(test_label_lists)))
+    test_dataloaders   = get_dataloaders(test_datasets, "query", args)
+    test_dataloader = test_dataloaders[0]
 
+    #for i,b in enumerate(support_dataloaders[0]):
+    ##        print(b)
+    #       print(i)
+
+    
     #3) Set model.eval()
-    #4) somehow use torch.no_grad() 
+    classifier.eval()
+    acc = 0
+    samples = 0
+    batch_num = 0
+    #4) somehow use torch.no_grad()
     #5) evaluate the results
-
-    print("hello")
-
+    with torch.no_grad():
+        
+        for i in range(350):
+            batch = next(iter(support_dataloader))
+            input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+            outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
+            softmax_out = torch.nn.Softmax()
+            output = softmax_out(outputs[0])
+            pred_labels = torch.argmax(output, dim=1)
+            batch = next(iter(support_dataloader))
+            acc += float(sum(pred_labels == labels))
+            samples += len(pred_labels)
+            batch_num += 1
+        
+    
+    print("accuracy: ", acc/samples)
+    print("Total samples: ", samples)
+    pdb.set_trace()
+    
 
 if __name__ == "__main__":
     args = parseArguments()
