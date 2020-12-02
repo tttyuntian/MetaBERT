@@ -95,6 +95,10 @@ def main(args):
     test_num_labels     = get_num_labels(test_label_lists)
     #print("Label Size: {}".format(len(test_label_lists)))
 
+    #3) Set model.eval()
+    #4) somehow use torch.no_grad() 
+    #5) evaluate the results
+
     print("hello")
 
 
