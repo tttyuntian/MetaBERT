@@ -22,6 +22,10 @@ def parseArguments():
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
+    parser.add_argument("--hidden_size", type=int, default=768)
+    parser.add_argument("--num_update_steps", type=int, default=20)
+    parser.add_argument("--num_sample_tasks", type=int, default=8)
+    parser.add_argument("--inner_learning_rate", type=float, default=1e-3)
 
     return parser.parse_args()
 
@@ -70,7 +74,6 @@ def main(args):
     #tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
     #test_datasets  = preprocess({args.task: test}, tokenizer, args)
 
-    num_labels     = get_num_labels(labels)
 
     # fine tune the model 
     # train for preset epoch 
