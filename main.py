@@ -76,7 +76,7 @@ def get_logger(args):
 
 def logging_args(args):
     for arg, value in vars(args).items():
-        logging.info("Argument {}: {}".format(arg, value))
+        logger.info("Argument {}: {}".format(arg, value))
 
 def get_train_steps(dataloaders, args):
     """ Get training steps for each task """
