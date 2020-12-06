@@ -50,7 +50,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
                 inner_optimizer.step()
                 inner_optimizer.zero_grad()
             
-        if args.train_verbose:
+        if args.train_verbose and sample_task_id % args.report_step == (args.report_step-1):
             logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
         
         # Outer update with query set
@@ -73,25 +73,25 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
                         sum_gradients[gradient_index] += deepcopy(params.grad)
                         gradient_index += 1
             
-    # Update BERT parameters after sampling num_sample_tasks
-    if sample_task_id % args.num_sample_tasks == (args.num_sample_tasks-1):
-        # Compute average gradient across tasks
-        for i in range(len(sum_gradients)):
-            sum_gradients[i] = sum_gradients[i] / args.num_sample_tasks
+        # Update BERT parameters after sampling num_sample_tasks
+        if sample_task_id % args.num_sample_tasks == (args.num_sample_tasks-1):
+            # Compute average gradient across tasks
+            for i in range(len(sum_gradients)):
+                sum_gradients[i] = sum_gradients[i] / args.num_sample_tasks
+            
+            # Assign gradients for original BERT model and Update weights
+            for i, params in enumerate(model.parameters()):
+                params.grad = sum_gradients[i]
+            
+            outer_optimizer.step()
+            outer_optimizer.zero_grad()
         
-        # Assign gradients for original BERT model and Update weights
-        for i, params in enumerate(model.parameters()):
-            params.grad = sum_gradients[i]
-        
-        outer_optimizer.step()
-        outer_optimizer.zero_grad()
-    
-    # Update this classifier
-    classifier.embedder = None
-    classifiers[task_id] = deepcopy(classifier)
+        # Update this classifier
+        classifier.embedder = None
+        #classifiers[task_id] = deepcopy(classifier)
 
-    del sum_gradients
-    gc.collect()
-    torch.cuda.empty_cache()
+        del sum_gradients
+        gc.collect()
+        torch.cuda.empty_cache()
 
     return model, classifiers
