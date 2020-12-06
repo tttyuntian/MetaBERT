@@ -43,10 +43,12 @@ def parse_arguments():
     parser.add_argument("--do_lower_case", type=bool, default=True)
 
     # MAML parameters
-    parser.add_argument("--num_update_steps", type=int, default=20)
+    parser.add_argument("--num_update_steps", type=int, default=5)
     parser.add_argument("--num_sample_tasks", type=int, default=8)
     parser.add_argument("--outer_learning_rate", type=float, default=5e-5)
     parser.add_argument("--inner_learning_rate", type=float, default=1e-3)
+    parser.add_argument("--grad_acc_step", type=int, default=4, \
+                        help="Gradient accumulation step size")
 
     # dataset preprocessing parameters
     parser.add_argument("--query_size", type=float, default=0.2, \
@@ -76,7 +78,7 @@ def get_logger(args):
 
 def logging_args(args):
     for arg, value in vars(args).items():
-        logging.info("Argument {}: {}".format(arg, value))
+        logger.info("Argument {}: {}".format(arg, value))
 
 def get_train_steps(dataloaders, args):
     """ Get training steps for each task """
