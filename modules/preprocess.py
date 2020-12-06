@@ -1,7 +1,7 @@
 import numpy as np
 import transformers
 import torch
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler, SubsetRandomSampler
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from datasets import load_dataset
 
 task_to_keys = { \
@@ -83,7 +83,7 @@ def get_dataloaders(datasets, split, args, is_eval=False):
     """ Convert datasets into torch.utils.data.DataLoader """
     dataloaders = []
     for task, dataset in datasets.items():
-        num_rows = dataset.num_rows if args.num_rows == -1 else args.num_rows
+        num_rows = dataset.num_rows if is_eval or args.num_rows == -1 else args.num_rows
         all_input_ids      = np.zeros([num_rows, args.max_length])
         all_attention_mask = np.zeros([num_rows, args.max_length])
         all_token_type_ids = np.zeros([num_rows, args.max_length])
