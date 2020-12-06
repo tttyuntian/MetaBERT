@@ -102,11 +102,7 @@ def get_dataloaders(datasets, split, args, is_eval=False):
         
         data = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label)
         if split in ["train", "support"]:
-            if args.num_rows < 0:
-                sampler = RandomSampler(data)
-            else: 
-                indices = [i for i in range(args.num_rows)]
-                sampler = SubsetRandomSampler(data)
+            sampler = RandomSampler(data)
             dataloader = DataLoader(data, sampler=sampler, batch_size=args.train_batch_size)
         else:
             sampler    = SequentialSampler(data)
