@@ -2,19 +2,20 @@ import argparse
 import json
 import sys
 import os
-import pdb
+import logging
 from copy import deepcopy
 
+import numpy as np
 import transformers
 from transformers import BertConfig, BertModel, BertTokenizer
-from transformers import Adam
+from transformers import AdamW
 import torch
 from datasets import load_dataset, load_metric
 from sklearn.metrics import matthews_corrcoef, f1_score
 from scipy.stats import pearsonr, spearmanr
 
 from modules.preprocess import get_label_lists, preprocess, get_num_labels, get_dataloaders
-from simple_classifier import Classifier
+from modules.simple_classifier import Classifier
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -52,9 +53,9 @@ def parseArguments():
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
-    parser.add_argument("--config_path", type=str, default="./metebert-small-tuned/")
+    parser.add_argument("--report_step", type=int, default=500)
 
-    parser.parse_args()
+    args = parser.parse_args()
     return args
 
 def get_logger(args):
@@ -71,7 +72,7 @@ def logging_args(args):
     for arg, value in vars(args).items():
         logger.info("Argument {}: {}".format(arg, value))
 
-def finetune(classifier, train_dataloader, optimizer, epoch_id):
+def finetune(classifier, train_dataloader, optimizer, epoch_id, args):
     losses = []
     classifier.train()
     
@@ -83,11 +84,12 @@ def finetune(classifier, train_dataloader, optimizer, epoch_id):
         optimizer.step()
         losses.append(loss.item())
     
-    logger.info(f"| Epoch {epoch_id:6d} | iter {iter_id:8d} | train_loss {float(np.mean(losses)):8.5f} |")
+        if args.train_verbose and iter_id % args.report_step == 0:
+            logger.info(f"| Epoch {epoch_id:6d} | iter {iter_id:8d} | train_loss {float(np.mean(losses)):8.5f} |")
+            losses = []
 
-def evaluate(classifier, eval_dataloader, epoch_id, args):
+def evaluate(classifier, eval_dataloader, epoch_id, task):
     classifier.eval()
-    task = args.task
     eval_metric_1  = None   # some tasks have two metrics
     eval_metric_2  = None
     eval_accuracy  = 0      
@@ -111,7 +113,7 @@ def evaluate(classifier, eval_dataloader, epoch_id, args):
             pred_list.append(logits)
         elif task in ["qqp", "mrpc"]:
             pred = np.argmax(logits, axis=1)
-            pred_list.append(np.minimum(pred_y, np.ones_list(pred_y)))
+            pred_list.append(np.minimum(pred, np.ones_like(pred)))
         else:
             pred_list.append(np.argmax(logits, axis=1))
         true_list.append(labels)
@@ -133,7 +135,9 @@ def evaluate(classifier, eval_dataloader, epoch_id, args):
         true = np.concatenate(true_list)
         eval_metric_2 = f1_score(true, pred, average="binary")
 
-    if task in ["qqp", "mrpc"]:
+    if task == "cola":
+        logger.info(f"| Epoch {epoch_id:6d} | eval_mcc {eval_metric_1:6.4f} |")
+    elif task in ["qqp", "mrpc"]:
         logger.info(f"| Epoch {epoch_id:6d} | eval_acc {eval_metric_1:6.4f} | eval_f1 {eval_metric_2:6.4f} |")
     elif task == "stsb":
         logger.info(f"| Epoch {epoch_id:6d} | eval_pearson {eval_metric_1:6.4f} | eval_spearman {eval_metric_2:6.4f} |")
@@ -147,37 +151,38 @@ def main(args):
     tokenizer = BertTokenizer.from_pretrained(args.text_embedder, do_lower_case=args.do_lower_case)
     
     train_datasets = {task:load_dataset("glue", task, split="train") for task in [args.task]}
-    label_lists    = get_label_lists(train_datasets, args.task)
+    label_lists    = get_label_lists(train_datasets, [args.task])
     num_labels     = get_num_labels(label_lists)
     train_datasets = preprocess(train_datasets, tokenizer, args)
-    train_dataloaders = get_dataloaders(train_datasets, "train", args)
-    train_dataloader  = train_dataloader[0]
+    train_dataloaders = get_dataloaders(train_datasets, "train", args, is_eval=True)
+    train_dataloader  = train_dataloaders[0]
 
     eval_datasets  = {task:load_dataset("glue", task, split="validation") for task in [args.task]}
     eval_datasets  = preprocess(eval_datasets, tokenizer, args)
-    eval_dataloaders  = get_dataloaders(eval_datasets, "validation", args)
+    eval_dataloaders  = get_dataloaders(eval_datasets, "validation", args, is_eval=True)
     eval_dataloader   = eval_dataloaders[0]
 
-    logger.info("Retrieve classifier with pretrained checkpoint from {}.".format(args.checkpoint_path))
+    logger.info("Retrieve classifier with pretrained checkpoint from {}.".format(args.load_path))
     classifier = Classifier(args.hidden_size, num_labels[0], args.dropout)
     if args.load:
-        classifier.embedder = BertModel.from_pretrained(args.checkpoint_path)
+        classifier.embedder = BertModel.from_pretrained(args.load_path)
     else:
         classifier.embedder = BertModel.from_pretrained(args.text_embedder)
     classifier.to(device)
-    optimizer = Adam(classifier.parameters(), lr=args.learning_rate)
+    optimizer = AdamW(classifier.parameters(), lr=args.learning_rate)
     
     logger.info("Start finetuning.")
+    task = args.task
     best_metric_1 = -1
     best_metric_2 = -1
     
-    for epoch_id in range(args.num_train_epochs):
+    for epoch_id in range(args.num_epochs):
         logger.info("="*70)
         # Finetune
-        finetune(classifier, train_dataloader, optimizer, epoch_id)
+        finetune(classifier, train_dataloader, optimizer, epoch_id, args)
         
         # Evaluate
-        metric_1, metric_2 = evaluate(classifier, eval_dataloader, epoch_id, args)
+        metric_1, metric_2 = evaluate(classifier, eval_dataloader, epoch_id, task)
 
         # Early stopping
         if metric_1 > best_metric_1:
@@ -193,7 +198,7 @@ def main(args):
             logger.info("Output checkpoint to /{}".format(args.ckpt_output_dir))
             os.makedirs(args.ckpt_output_dir, exist_ok=True)
             output_path = os.path.join(args.ckpt_output_dir, args.ckpt_output_name)
-            torch.save(classifier.state_dict(), output_path)
+            torch.save(classifier.state_dict(), "{}.pt".format(output_path))
             
             logger.info("*"*70)
 
