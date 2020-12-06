@@ -154,8 +154,11 @@ def main(args):
     label_lists    = get_label_lists(train_datasets, [args.task])
     num_labels     = get_num_labels(label_lists)
     train_datasets = preprocess(train_datasets, tokenizer, args)
+    print(train_datasets)
     train_dataloaders = get_dataloaders(train_datasets, "train", args, is_eval=True)
     train_dataloader  = train_dataloaders[0]
+    print("hello")
+    print(len(train_dataloader))
 
     eval_datasets  = {task:load_dataset("glue", task, split="validation") for task in [args.task]}
     eval_datasets  = preprocess(eval_datasets, tokenizer, args)

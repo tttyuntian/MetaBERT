@@ -1,7 +1,7 @@
 import numpy as np
 import transformers
 import torch
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler, SubsetRandomSampler
 from datasets import load_dataset
 
 task_to_keys = { \
@@ -102,7 +102,11 @@ def get_dataloaders(datasets, split, args, is_eval=False):
         
         data = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label)
         if split in ["train", "support"]:
-            sampler    = RandomSampler(data)
+            if args.num_rows < 0:
+                sampler = RandomSampler(data)
+            else: 
+                indices = [i for i in range(args.num_rows)]
+                sampler = SubsetRandomSampler(data)
             dataloader = DataLoader(data, sampler=sampler, batch_size=args.train_batch_size)
         else:
             sampler    = SequentialSampler(data)
