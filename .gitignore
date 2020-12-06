@@ -130,4 +130,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ignore checkpoints
 ./metabert-small/
+
+# MacOS DS_STORE files
+.DS_Store
