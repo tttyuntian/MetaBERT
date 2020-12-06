@@ -43,30 +43,36 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
             outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
             loss = outputs[1]
             loss.backward()
-            inner_optimizer.step()
-            inner_optimizer.zero_grad()
             all_loss.append(loss.item())
+
+            # Gradient accumulation
+            if (step_id+1) % args.grad_acc_step == 0:
+                inner_optimizer.step()
+                inner_optimizer.zero_grad()
+            
         if args.train_verbose:
             logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
         
         # Outer update with query set
-        query_batch = next(iter(query_dataloaders[task_id]))
-        q_input_ids, q_attention_mask, q_token_type_ids, q_labels = tuple(t.to(device) for t in query_batch)
-        q_outputs = classifier(q_input_ids, q_attention_mask, q_token_type_ids, labels=q_labels)
-        
-        # Compute the cumulative gradients of original BERT parameters
-        q_loss = q_outputs[1]
-        q_loss.backward()
-        classifier.to(torch.device("cpu"))
-        gradient_index = 0
-        for i, (name, params) in enumerate(classifier.named_parameters()):
-            if name.startswith("embedder"):
-                if sample_task_id == 0:
-                    sum_gradients.append(deepcopy(params.grad))
-                else:
-                    sum_gradients[gradient_index] += deepcopy(params.grad)
-                    gradient_index += 1
-        
+        for _ in range(args.grad_acc_step):
+            classifier.to(device)
+            query_batch = next(iter(query_dataloaders[task_id]))
+            q_input_ids, q_attention_mask, q_token_type_ids, q_labels = tuple(t.to(device) for t in query_batch)
+            q_outputs = classifier(q_input_ids, q_attention_mask, q_token_type_ids, labels=q_labels)
+            
+            # Compute the cumulative gradients of original BERT parameters
+            q_loss = q_outputs[1]
+            q_loss.backward()
+            classifier.to(torch.device("cpu"))
+            gradient_index = 0
+            for i, (name, params) in enumerate(classifier.named_parameters()):
+                if name.startswith("embedder"):
+                    if sample_task_id == 0:
+                        sum_gradients.append(deepcopy(params.grad))
+                    else:
+                        sum_gradients[gradient_index] += deepcopy(params.grad)
+                        gradient_index += 1
+            
     # Update BERT parameters after sampling num_sample_tasks
     if sample_task_id % args.num_sample_tasks == (args.num_sample_tasks-1):
         # Compute average gradient across tasks
