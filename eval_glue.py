@@ -14,7 +14,7 @@ from datasets import load_dataset, load_metric
 from sklearn.metrics import matthews_corrcoef, f1_score
 from scipy.stats import pearsonr, spearmanr
 
-from modules.preprocess import get_label_lists, preprocess, get_num_labels, get_dataloaders
+from modules.preprocess import get_label_lists, preprocess, get_num_labels, get_dataloaders, get_few_shot_dataset
 from modules.simple_classifier import Classifier
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,6 +29,7 @@ def parseArguments():
                         help="Evaluation GLUE task.")
     parser.add_argument("--load", action="store_true")
     parser.add_argument("--text_embedder", type=str, default="bert-base-uncased")
+    parser.add_argument("--seed", type=int, default=1123)
 
     # I/O parameters
     parser.add_argument("--load_path", type=str, required=True, \
@@ -46,6 +47,8 @@ def parseArguments():
     parser.add_argument("--dropout", type=float, default=0.2)
 
     # Finetuning parameters
+    parser.add_argument("--k_shot", type=int, default=-1,
+                        help="K-shot for few-shot learning experiment. -1 means whole training set.")
     parser.add_argument("--train_rows", type=int, default=-1, \
                         help="Number of training samples loaded. -1 means whole dataset.")
     parser.add_argument("--eval_rows", type=int, default=-1, \
@@ -155,6 +158,7 @@ def main(args):
     train_datasets = {task:load_dataset("glue", task, split="train") for task in [args.task]}
     label_lists    = get_label_lists(train_datasets, [args.task])
     num_labels     = get_num_labels(label_lists)
+    train_datasets = get_few_shot_dataset(train_datasets, args) if args.k_shot > 0 else train_datasets
     train_datasets = preprocess(train_datasets, tokenizer, args)
     print(train_datasets)
     train_dataloaders = get_dataloaders(train_datasets, "train", args)

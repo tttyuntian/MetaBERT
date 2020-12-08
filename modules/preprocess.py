@@ -112,3 +112,16 @@ def get_dataloaders(datasets, split, args, is_eval=False):
             dataloader = DataLoader(data, sampler=sampler, batch_size=args.eval_batch_size)
         dataloaders.append(dataloader)
     return dataloaders
+
+def get_few_shot_dataset(datasets, args):
+    """ Extract k-shot samples from train_datasets"""
+    dataset = datasets[0]
+    ids = []
+    for label in range(num_labels[0]):
+        label_dataset = dataset.filter(lambda example:example["label"]==label)
+        label_dataset = label_dataset.shuffle(seed=args.seed)
+        label_dataset = label_dataset.select(np.arange(args.k_shot))
+        ids.extend(label_dataset["idx"])
+
+    dataset = dataset.select(ids)
+    return [dataset]
