@@ -61,6 +61,7 @@ def parse_arguments():
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--eval_batch_size", type=int, default=8)
     parser.add_argument("--train_verbose", action="store_true")
+    parser.add_argument("--report_step", type=int, default=100)
     
     args = parser.parse_args()
     #print("input args:\n", json.dumps(vars(args), indent=4, separators=(",", ":")))
@@ -82,7 +83,7 @@ def logging_args(args):
 
 def get_train_steps(dataloaders, args):
     """ Get training steps for each task """
-    return [len(dataloader.dataset) // (args.train_batch_size*(args.num_update_steps+1)) for dataloader in dataloaders]
+    return [len(dataloader.dataset) // (args.train_batch_size*(args.num_update_steps)*args.grad_acc_step) for dataloader in dataloaders]
 
 def get_classifiers(num_labels, args):
     return [Classifier(args.hidden_size, num_labels[task_id]) for task_id in range(len(args.tasks))]

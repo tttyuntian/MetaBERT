@@ -38,17 +38,17 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
         all_loss = []
         support_dataloader = support_dataloaders[task_id]
         for step_id in range(args.num_update_steps):
-            batch = next(iter(support_dataloader))
-            input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
-            outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
-            loss = outputs[1]
-            loss.backward()
-            all_loss.append(loss.item())
+            for _ in range(args.grad_acc_step):
+                # Deal with small batch size with gradient accumulation
+                batch = next(iter(support_dataloader))
+                input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+                outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
+                loss = outputs[1]
+                loss.backward()
+                all_loss.append(loss.item())
 
-            # Gradient accumulation
-            if (step_id+1) % args.grad_acc_step == 0:
-                inner_optimizer.step()
-                inner_optimizer.zero_grad()
+            inner_optimizer.step()
+            inner_optimizer.zero_grad()
             
         if args.train_verbose and sample_task_id % args.report_step == (args.report_step-1):
             logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
@@ -67,7 +67,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
             gradient_index = 0
             for i, (name, params) in enumerate(classifier.named_parameters()):
                 if name.startswith("embedder"):
-                    if sample_task_id == 0:
+                    if sample_task_id % args.num_sample_tasks == 0:
                         sum_gradients.append(deepcopy(params.grad))
                     else:
                         sum_gradients[gradient_index] += deepcopy(params.grad)
@@ -85,12 +85,12 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
             
             outer_optimizer.step()
             outer_optimizer.zero_grad()
+            sum_gradients = []
         
         # Update this classifier
         classifier.embedder = None
         #classifiers[task_id] = deepcopy(classifier)
 
-        del sum_gradients
         gc.collect()
         torch.cuda.empty_cache()
 
