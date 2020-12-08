@@ -46,8 +46,10 @@ def parseArguments():
     parser.add_argument("--dropout", type=float, default=0.2)
 
     # Finetuning parameters
-    parser.add_argument("--num_rows", type=int, default=-1, \
-                        help="Number of datset rows loaded. -1 means whole dataset.")
+    parser.add_argument("--train_rows", type=int, default=-1, \
+                        help="Number of training samples loaded. -1 means whole dataset.")
+    parser.add_argument("--eval_rows", type=int, default=-1, \
+                        help="Number of test samples loaded. -1 means whole dataset.")
     parser.add_argument("--num_epochs", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=5e-5)
     parser.add_argument("--train_batch_size", type=int, default=8)
@@ -155,7 +157,7 @@ def main(args):
     num_labels     = get_num_labels(label_lists)
     train_datasets = preprocess(train_datasets, tokenizer, args)
     print(train_datasets)
-    train_dataloaders = get_dataloaders(train_datasets, "train", args, is_eval=True)
+    train_dataloaders = get_dataloaders(train_datasets, "train", args)
     train_dataloader  = train_dataloaders[0]
     print("hello")
     print(len(train_dataloader))

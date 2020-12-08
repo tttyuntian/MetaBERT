@@ -53,9 +53,11 @@ def parse_arguments():
     # dataset preprocessing parameters
     parser.add_argument("--query_size", type=float, default=0.2, \
                         help="Proportion of query set in training set.")
-    parser.add_argument("--num_rows", type=int, default=-1, \
-                        help="Number of datset rows loaded. -1 means whole dataset.")
-    
+    parser.add_argument("--train_rows", type=int, default=-1, \
+                        help="Number of training samples loaded. -1 means whole dataset.")
+    parser.add_argument("--eval_rows", type=int, default=-1, \
+                        help="Number of test samples loaded. -1 means whole dataset.")
+
     # training parameters
     parser.add_argument("--num_train_epochs", type=int, default=5)
     parser.add_argument("--train_batch_size", type=int, default=8)

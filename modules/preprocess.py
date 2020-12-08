@@ -83,7 +83,10 @@ def get_dataloaders(datasets, split, args, is_eval=False):
     """ Convert datasets into torch.utils.data.DataLoader """
     dataloaders = []
     for task, dataset in datasets.items():
-        num_rows = dataset.num_rows if is_eval or args.num_rows == -1 else args.num_rows
+        if is_eval:
+            num_rows = dataset.num_rows if args.eval_rows == -1 else args.eval_rows
+        else:
+            num_rows = dataset.num_rows if args.train_rows == -1 else args.train_rows
         all_input_ids      = np.zeros([num_rows, args.max_length])
         all_attention_mask = np.zeros([num_rows, args.max_length])
         all_token_type_ids = np.zeros([num_rows, args.max_length])
@@ -97,7 +100,7 @@ def get_dataloaders(datasets, split, args, is_eval=False):
         all_attention_mask = torch.tensor(all_attention_mask, dtype=torch.long)
         all_token_type_ids = torch.tensor(all_token_type_ids, dtype=torch.long)
         all_label          = torch.tensor(dataset[:num_rows]["label"], dtype=torch.long)
-        if is_eval and args.task == "stsb":
+        if args.task == "stsb":
             all_label = all_label.float()
         
         data = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label)
