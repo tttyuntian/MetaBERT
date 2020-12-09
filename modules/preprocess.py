@@ -113,9 +113,9 @@ def get_dataloaders(datasets, split, args, is_eval=False):
         dataloaders.append(dataloader)
     return dataloaders
 
-def get_few_shot_dataset(datasets, args):
+def get_few_shot_dataset(datasets, num_labels, args):
     """ Extract k-shot samples from train_datasets"""
-    dataset = datasets[0]
+    dataset = datasets[args.task]
     ids = []
     for label in range(num_labels[0]):
         label_dataset = dataset.filter(lambda example:example["label"]==label)
@@ -124,4 +124,4 @@ def get_few_shot_dataset(datasets, args):
         ids.extend(label_dataset["idx"])
 
     dataset = dataset.select(ids)
-    return [dataset]
+    return {args.task: dataset}
