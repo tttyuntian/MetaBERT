@@ -32,11 +32,13 @@ def parseArguments():
     parser.add_argument("--seed", type=int, default=1123)
 
     # I/O parameters
-    parser.add_argument("--load_path", type=str, required=True, \
+    parser.add_argument("--load_path", type=str, \
                         help="Directory of the pretrained checkpoint")
-    parser.add_argument("--ckpt_output_dir", type=str, required=True, \
+    parser.add_argument("--output_ckpt", action="store_true", \
+                        help="Use this flag for output the finetuned checkpoint")
+    parser.add_argument("--ckpt_output_dir", type=str, \
                         help="Output directory for finetuned checkpoint")
-    parser.add_argument("--ckpt_output_name", type=str, required=True, \
+    parser.add_argument("--ckpt_output_name", type=str, \
                         help="Output name for finetuned checkpoint")
     
     # MetaBERT parameters
@@ -113,7 +115,7 @@ def evaluate(classifier, eval_dataloader, epoch_id, task):
         iter_eval_accuracy = np.sum(np.argmax(logits, axis=1) == labels)
         eval_accuracy  += iter_eval_accuracy
         eval_data_size += input_ids.size(0)
-
+        
         if task == "stsb":
             pred_list.append(logits)
         elif task in ["qqp", "mrpc"]:
@@ -122,7 +124,7 @@ def evaluate(classifier, eval_dataloader, epoch_id, task):
         else:
             pred_list.append(np.argmax(logits, axis=1))
         true_list.append(labels)
-
+    
     if task == "cola":
         pred = np.concatenate(pred_list)
         true = np.concatenate(true_list)
@@ -139,7 +141,7 @@ def evaluate(classifier, eval_dataloader, epoch_id, task):
         pred = np.concatenate(pred_list)
         true = np.concatenate(true_list)
         eval_metric_2 = f1_score(true, pred, average="binary")
-
+    
     if task == "cola":
         logger.info(f"| Epoch {epoch_id:6d} | eval_mcc {eval_metric_1:6.4f} |")
     elif task in ["qqp", "mrpc"]:
@@ -204,14 +206,17 @@ def main(args):
             elif task == "stsb":
                 best_metric_2 = metric_2
             
-            logger.info("Output checkpoint to /{}".format(args.ckpt_output_dir))
-            os.makedirs(args.ckpt_output_dir, exist_ok=True)
-            output_path = os.path.join(args.ckpt_output_dir, args.ckpt_output_name)
-            torch.save(classifier.state_dict(), "{}.pt".format(output_path))
+            if args.output_ckpt:
+                logger.info("Output checkpoint to /{}".format(args.ckpt_output_dir))
+                os.makedirs(args.ckpt_output_dir, exist_ok=True)
+                output_path = os.path.join(args.ckpt_output_dir, args.ckpt_output_name)
+                torch.save(classifier.state_dict(), "{}.pt".format(output_path))
             
             logger.info("*"*70)
 
         logger.info("="*70)
+    
+    logger.info(f"Best model with metric1 {best_metric_1:6.4f} and metric2 {best_metric_2:6.4f}")
 
 if __name__ == "__main__":
     args = parseArguments()

@@ -26,6 +26,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
     
     sum_gradients = []
     sample_task_ids = sample_task(train_steps_per_task, args)
+    num_updates = 0
     
     for sample_task_id, task_id in enumerate(sample_task_ids):
         logger.info("Sample tasks: {}/{}".format(sample_task_id, len(sample_task_ids)))
@@ -44,15 +45,17 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
                 input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
                 outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
                 loss = outputs[1]
-                loss = loss / args.grad_acc_step    # # Scale the loss to the mean of the accumulated batch size
+                #logger.info(f"| task_id {sample_task_id} | step_id {step_id} | loss {loss.item():6.4f}")
+                loss = loss / args.grad_acc_step    # Scale the loss to the mean of the accumulated batch size
+                #logger.info(f"avg loss {loss.item()}")
                 loss.backward()
-                all_loss.append(loss.item())
+                all_loss.append(loss.item())    # FIXME: modify this due to scaled loss values. 
 
             inner_optimizer.step()
             inner_optimizer.zero_grad()
             
         if args.train_verbose and sample_task_id % args.report_step == (args.report_step-1):
-            logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} |".format(sample_task_id, np.mean(all_loss)))
+            logger.info("| sample_task_id {:10d} | inner_loss {:8.6f} | num_updates {:6d} |".format(sample_task_id, np.mean(all_loss), num_updates))
         
         # Outer update with query set
         for _ in range(args.grad_acc_step):
@@ -88,7 +91,8 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
             outer_optimizer.step()
             outer_optimizer.zero_grad()
             sum_gradients = []
-        
+            num_updates += 1
+
         # Update this classifier
         classifier.embedder = None
         #classifiers[task_id] = deepcopy(classifier)
