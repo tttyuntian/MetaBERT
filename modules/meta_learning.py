@@ -44,6 +44,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
                 input_ids, attention_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
                 outputs = classifier(input_ids, attention_mask, token_type_ids, labels = labels)
                 loss = outputs[1]
+                loss = loss / args.grad_acc_step    # # Scale the loss to the mean of the accumulated batch size
                 loss.backward()
                 all_loss.append(loss.item())
 
@@ -62,6 +63,7 @@ def maml(model, classifiers, outer_optimizer, support_dataloaders, query_dataloa
             
             # Compute the cumulative gradients of original BERT parameters
             q_loss = q_outputs[1]
+            q_loss = q_loss / args.grad_acc_step    # Scale the loss to the mean of the accumulated batch size
             q_loss.backward()
             classifier.to(torch.device("cpu"))
             gradient_index = 0
