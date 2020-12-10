@@ -100,7 +100,7 @@ def get_dataloaders(datasets, split, args, is_eval=False):
         all_attention_mask = torch.tensor(all_attention_mask, dtype=torch.long)
         all_token_type_ids = torch.tensor(all_token_type_ids, dtype=torch.long)
         all_label          = torch.tensor(dataset[:num_rows]["label"], dtype=torch.long)
-        if args.task == "stsb":
+        if task == "stsb":
             all_label = all_label.float()
         
         data = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label)
