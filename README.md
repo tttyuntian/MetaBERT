@@ -1,4 +1,8 @@
 # MetaBERT
-2470 Deep Learning
+Welcome to our final project for CSCI2470-Deep Learning at Brown!
 
-After `pip install -r requirements.txt`, go to [Pytorch Install](https://pytorch.org/get-started/locally/) and download Pytorch with CUDA 10.1.
+# Teleports to Our Report, Presentation, and Poster
+- Click [Effectiveness of Meta-Learning with BERT](https://drive.google.com/file/d/1UN7AqRHr39Q80ve7UgRToV5KGOiOxCRF/view?usp=sharing) to our report.
+- Click [here](https://www.youtube.com/watch?v=PRMntOVpH7s&ab_channel=TTTyuntian) to our presentation.
+- Click [here](https://drive.google.com/file/d/1SqMPm98hisBeQ1bwi805uD2Qhe1_GiAb/view?usp=sharing) to our poster.
+- Enjoy!
